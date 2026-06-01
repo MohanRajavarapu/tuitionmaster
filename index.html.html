@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TuitionMaster - Pro</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght=400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="login-screen" id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-name">TuitionMaster</div>
+      <div class="login-logo-sub">Fee &amp; Student Management Matrix</div>
+    </div>
+    <div class="tuition-header" id="login-tuition-header">
+      <div class="tuition-header-name" id="login-tuition-name">System Initialization</div>
+      <div class="tuition-header-master" id="login-tuition-master">Select access node to authenticate</div>
+    </div>
+
+    <div id="step-role">
+      <div class="login-title">Select Access Portal</div>
+      <div class="role-grid">
+        <div class="role-card" id="role-super-admin" onclick="selectRole('super-admin')">
+          <div class="role-icon">👑</div>
+          <div class="role-label">Super-Admin</div>
+          <div class="role-desc">Full System Control</div>
+        </div>
+        <div class="role-card" id="role-accountant" onclick="selectRole('accountant')">
+          <div class="role-icon">🧮</div>
+          <div class="role-label">Accountant</div>
+          <div class="role-desc">Financial Ledger</div>
+        </div>
+        <div class="role-card" id="role-teacher" onclick="selectRole('teacher')">
+          <div class="role-icon">👩‍🏫</div>
+          <div class="role-label">Teacher</div>
+          <div class="role-desc">Assigned Roster</div>
+        </div>
+      </div>
+
+      <div class="teacher-select-wrap" id="teacher-select-wrap" style="display:none">
+        <label>Select Instructor Identity</label>
+        <select id="teacher-select" onchange="onTeacherSelect()">
+          <option value="">-- Choose teacher --</option>
+        </select>
+      </div>
+
+      <div class="pin-wrap" id="pin-wrap" style="display:none">
+        <label id="pin-label">Secure PIN Pass-Token</label>
+        <div class="pin-input-row">
+          <input class="pin-digit" id="p0" type="password" maxlength="1" inputmode="numeric" onkeydown="pinKeyDown(event, 0)" oninput="pinInput(0)"/>
+          <input class="pin-digit" id="p1" type="password" maxlength="1" inputmode="numeric" onkeydown="pinKeyDown(event, 1)" oninput="pinInput(1)"/>
+          <input class="pin-digit" id="p2" type="password" maxlength="1" inputmode="numeric" onkeydown="pinKeyDown(event, 2)" oninput="pinInput(2)"/>
+          <input class="pin-digit" id="p3" type="password" maxlength="1" inputmode="numeric" onkeydown="pinKeyDown(event, 3)" oninput="pinInput(3)"/>
+        </div>
+        <div class="pin-error" id="pin-error"></div>
+      </div>
+
+      <button class="login-btn" id="login-btn" onclick="doLogin()" style="display:none">Enter Control Workspace</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<header class="header" id="app-header">
+  <div class="header-inner">
+    <div class="logo-block">
+      <div class="tuition-name" id="header-tuition-name">TuitionMaster</div>
+      <div class="master-name" id="header-master-name"></div>
+    </div>
+    <div class="user-badge">
+      <div class="user-badge-dot" id="user-dot"></div>
+      <span id="user-badge-label">—</span>
+    </div>
+    <nav class="nav-tabs" id="desktop-nav"></nav>
+    <button class="add-btn" id="header-add-btn" onclick="openAddMemberModal()" style="display:none">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span>Add Student</span>
+    </button>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+</header>
+
+<main class="main" id="app-main">
+
+  <div id="page-dashboard" style="display:none">
+    <div class="stats-row" id="stats-row"></div>
+    <div class="dash-grid">
+      <div class="panel">
+        <div class="panel-title">Payment Metrics Overview</div>
+        <div class="pie-wrap">
+          <canvas id="pieChart"></canvas>
+          <div class="pie-center"><div class="pie-pct" id="pie-pct">—</div><div class="pie-sub">paid</div></div>
+        </div>
+        <div class="pie-legend">
+          <div class="pie-leg-item" onclick="gotoMembers('paid')"><div class="pie-dot" style="background:#639922"></div><span>Paid Accounts</span><span class="pie-leg-count" id="leg-paid">0</span></div>
+          <div class="pie-leg-item" onclick="gotoMembers('soon')"><div class="pie-dot" style="background:#EF9F27"></div><span>Critical (3 Days)</span><span class="pie-leg-count" id="leg-soon">0</span></div>
+          <div class="pie-leg-item" onclick="gotoMembers('overdue')"><div class="pie-dot" style="background:#E24B4A"></div><span>Delinquent</span><span class="pie-leg-count" id="leg-overdue">0</span></div>
+          <div class="pie-leg-item" onclick="gotoMembers('pending')"><div class="pie-dot" style="background:#B4B2A9"></div><span>Standard Cycle</span><span class="pie-leg-count" id="leg-pending">0</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Urgent Action Items Ledger</div>
+        <div class="upcoming-list" id="upcoming-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="page-members" style="display:none">
+    <div class="members-toolbar">
+      <div class="search-box">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="search-input" placeholder="Search name, mobile..." oninput="renderTable()"/>
+      </div>
+      <select class="filter-select" id="filter-status" onchange="renderTable()">
+        <option value="all">All Statuses</option>
+        <option value="paid">Paid</option>
+        <option value="soon">Due Soon</option>
+        <option value="overdue">Overdue</option>
+        <option value="pending">Pending</option>
+      </select>
+      <select class="filter-select" id="filter-plan" onchange="renderTable()">
+        <option value="all">All Plans</option>
+        <option value="Monthly">Monthly</option>
+        <option value="Bi-Monthly">Bi-Monthly</option>
+        <option value="Quarterly">Quarterly</option>
+        <option value="Half-Yearly">Half-Yearly</option>
+        <option value="Yearly">Yearly</option>
+        <option value="Custom">Custom Date</option>
+      </select>
+      <button class="export-btn" onclick="exportCSV()">Export CSV</button>
+    </div>
+    <div class="table-wrap">
+      <table class="members-table">
+        <thead><tr><th>Member Details</th><th>Mobile</th><th>Scheme</th><th>Target Due Date</th><th>Payment Status</th><th>Actions</th></tr></thead>
+        <tbody id="members-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="page-teachers" style="display:none">
+    <div class="panel-title" style="margin-bottom:14px">
+      Active Instructors Console
+      <div style="display:flex; gap:8px;">
+        <button class="export-btn" style="background:var(--purple-light); color:var(--purple); border-color:var(--purple)" onclick="openBulkUploadModal('teachers')">📂 Bulk Upload Teachers</button>
+        <button class="add-btn" onclick="openAddTeacherModal()" style="font-size:12px;padding:6px 12px">Add Single Teacher</button>
+      </div>
+    </div>
+    <div class="teachers-grid" id="teachers-grid"></div>
+  </div>
+
+  <div id="page-all-students" style="display:none">
+    <div class="members-toolbar">
+      <div class="search-box">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="as-search" placeholder="Search master directory..." oninput="renderAllStudents()"/>
+      </div>
+      <select class="filter-select" id="as-filter-teacher" onchange="renderAllStudents()">
+        <option value="all">All Instructors</option>
+      </select>
+      <select class="filter-select" id="as-filter-status" onchange="renderAllStudents()">
+        <option value="all">All Financial States</option>
+        <option value="paid">Paid</option>
+        <option value="soon">Due Soon</option>
+        <option value="overdue">Overdue</option>
+        <option value="pending">Pending</option>
+      </select>
+      <button class="export-btn" id="bulk-student-upload-btn" onclick="openBulkUploadModal('students')" style="background:var(--green-light); color:var(--green-dark); border-color:var(--green-mid)">📂 Bulk Upload Students</button>
+      <button class="export-btn" id="as-bulk-sms-btn" onclick="openBulkSMSModal()" style="background:var(--blue-light); color:var(--blue); border-color:var(--blue-mid)">📣 Bulk SMS</button>
+      <button class="export-btn" onclick="exportAllCSV()">Export All Database</button>
+    </div>
+    <div class="table-wrap">
+      <table class="members-table">
+        <thead><tr><th>Member Profile</th><th>Assigned Faculty</th><th>Mobile Contact</th><th>Scheme</th><th>Calculated Due Date</th><th>Status Toggle</th><th>Operational Matrix</th></tr></thead>
+        <tbody id="all-students-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="page-settings" style="display:none">
+    <div class="settings-section" id="admin-power-tools-section" style="display:none">
+      <div class="settings-label">System Control Realignment Matrix</div>
+      <div class="settings-card">
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Academic Year Lifecycle Rollover</div>
+            <div class="settings-row-sub">Bulk promote active class allocations into progressive target segments. Purges seasonal data structures safely.</div>
+          </div>
+          <button class="settings-row-action" style="color:var(--purple); background:var(--purple-light); border-color:var(--purple)" onclick="triggerRollover()">Execute Automated Rollover Sequence</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-label">Central Audit Trails Log Stream</div>
+      <div class="settings-card" style="padding:14px;">
+        <div class="audit-list" id="audit-logs-container"></div>
+        <button class="logout-btn" style="width:100%" onclick="clearLogsClick()">Purge Audit Log State Segments</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-label">Institution Customization</div>
+      <div class="settings-card">
+        <div class="settings-row">
+          <div><div class="settings-row-label" id="s-tuition-name">—</div><div class="settings-row-sub">Tuition Centre Name</div></div>
+          <button class="settings-row-action" onclick="openNameModal()">Modify</button>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-row-label" id="s-master-name">—</div><div class="settings-row-sub">Tuition Master Signature</div></div>
+          <button class="settings-row-action" onclick="openNameModal()">Modify</button>
+        </div>
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-label">Authorization Token Mapping</div>
+      <div class="settings-card">
+        <div class="settings-row">
+          <div><div class="settings-row-label">Super-Admin Root Pin</div><div class="settings-row-sub">Primary cryptographic application override password</div></div>
+          <button class="settings-row-action" onclick="openChangePinModal('super-admin')">Rotate Token</button>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-row-label">Accountant Entry Pin</div><div class="settings-row-sub">Secures isolation context for cash handling desks</div></div>
+          <button class="settings-row-action" onclick="openChangePinModal('accountant')">Rotate Token</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<nav class="mobile-nav" id="mobile-nav" style="display:none">
+  <div class="mobile-nav-inner" id="mobile-nav-inner"></div>
+</nav>
+
+<div class="modal-backdrop" id="bulk-upload-modal">
+  <div class="modal" style="max-width: 460px;">
+    <button class="modal-close" onclick="closeModal('bulk-upload-modal')">✕</button>
+    <div class="modal-title" id="bulk-upload-title">JSON Pipeline Asset Injector</div>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Paste Standard Input JSON Array Script *</label>
+        <textarea id="bulk-json-area" rows="10" style="font-family: monospace; font-size: 11px; padding: 10px;" placeholder="[{ &quot;name&quot;: &quot;John Doe&quot;, ... }]"></textarea>
+      </div>
+      <div class="form-group full" style="font-size: 11px; color: var(--text3); background: var(--surface2); padding: 10px; border-radius: var(--radius); line-height: 1.4;">
+        <span style="font-weight: bold; color: var(--text)">Accepted Schema Blueprints:</span><br>
+        <span id="bulk-schema-hint"></span>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('bulk-upload-modal')">Cancel Execution</button>
+      <button class="btn-primary" onclick="processBulkJSONSubmit()">Compile &amp; Append Records</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="member-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('member-modal')">✕</button>
+    <div class="modal-title" id="member-modal-title">Student Profile Matrix</div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Candidate Name *</label><input type="text" id="f-name" placeholder="Full legal name"/></div>
+      <div class="form-group full"><label>Parent / Guardian Name *</label><input type="text" id="f-father" placeholder="Responsible authority name"/></div>
+      <div class="form-group"><label>Mobile Device Contact *</label><input type="tel" id="f-mobile" placeholder="10-digit number" maxlength="10"/></div>
+      <div class="form-group"><label>Fee Allocation Plan Matrix *</label>
+        <select id="f-plan" onchange="togglePlanDueOption()">
+          <option value="">Select plan</option>
+          <option value="Monthly">Monthly Cycle</option>
+          <option value="Bi-Monthly">Bi-Monthly Cycle</option>
+          <option value="Quarterly">Quarterly Cycle</option>
+          <option value="Half-Yearly">Half-Yearly Cycle</option>
+          <option value="Yearly">Yearly Cycle</option>
+          <option value="Custom">Custom Date Setup Override</option>
+        </select>
+      </div>
+      <div class="form-group" id="join-date-group"><label>Join Date Entry *</label><input type="date" id="f-joindate"/></div>
+      <div class="form-group" id="custom-date-group" style="display:none;"><label>Custom Absolute Due Target *</label><input type="date" id="f-customdue"/></div>
+      <div class="form-group"><label>Fee Matrix Value Amount (₹)</label><input type="number" id="f-fee" placeholder="e.g. 2500"/></div>
+      <div class="form-group full" id="f-teacher-wrap" style="display:none"><label>Assigned Instructional Academic Escort</label><select id="f-teacher"></select></div>
+      <div class="form-group full" id="f-status-wrap"><label>Payment Lifecycle Status</label>
+        <select id="f-status"><option value="pending">Pending Delinquency Clearance</option><option value="paid">Account Settlement Complete [Paid]</option></select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('member-modal')">Cancel</button>
+      <button class="btn-primary" onclick="saveMember()">Commit Partition Array</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="sms-modal">
+  <div class="modal" style="max-width:440px">
+    <button class="modal-close" onclick="closeModal('sms-modal')">✕</button>
+    <div class="modal-title">Unified Carrier Messaging Stack</div>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Target Audience Filtering Vector</label>
+        <select id="sms-target">
+          <option value="all">All Currently Registered Accounts</option>
+          <option value="overdue">Filter: Delinquent / Overdue Ledger Balance Only</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>SMS Message Raw String String Payload Block</label>
+        <textarea id="sms-body" rows="4" placeholder="Enter broadcast payload configurations..."></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('sms-modal')">Cancel Execution</button>
+      <button class="btn-primary" onclick="sendBulkSMS()">Dispatch Stream Transmission</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="gateway-modal">
+  <div class="modal" style="max-width:420px">
+    <button class="modal-close" onclick="closeModal('gateway-modal')">✕</button>
+    <div class="modal-title" id="gateway-title">Network API Pipeline Event Stream</div>
+    <div id="gateway-log-output" style="background:#1a1a1a; color:#22c55e; padding:14px; border-radius:8px; font-family:monospace; font-size:12px; max-height:260px; overflow-y:auto; line-height:1.4;"></div>
+    <div class="modal-actions">
+      <button class="btn-primary" style="background:var(--text)" onclick="closeModal('gateway-modal')">Acknowledge Stream</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="teacher-modal">
+  <div class="modal" style="max-width:400px">
+    <button class="modal-close" onclick="closeModal('teacher-modal')">✕</button>
+    <div class="modal-title">Provision New Faculty Profile Node</div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Teacher Name Reference *</label><input type="text" id="t-name" placeholder="Full name structure"/></div>
+      <div class="form-group full"><label>Subject Matrix / Division Mapping</label><input type="text" id="t-subject" placeholder="e.g. Calculus, Grade XI"/></div>
+      <div class="form-group full"><label>Access Authorization Token PIN (4 Digits) *</label><input type="password" id="t-pin" placeholder="Four numeric characters" maxlength="4" inputmode="numeric"/></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('teacher-modal')">Cancel</button>
+      <button class="btn-primary" onclick="saveTeacher()">Authorize Instructor Entity</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="name-modal">
+  <div class="modal" style="max-width:420px">
+    <button class="modal-close" onclick="closeModal('name-modal')">✕</button>
+    <div class="modal-title">Corporate Structure Modification Desk</div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Tuition Centre Base Identifier Name *</label><input type="text" id="n-tuition" placeholder="Trading name value"/></div>
+      <div class="form-group full"><label>Tuition Master Registrar Signature *</label><input type="text" id="n-master" placeholder="Primary owner signature context"/></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('name-modal')">Cancel</button>
+      <button class="btn-primary" onclick="saveTuitionName()">Commit Matrix Changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="pin-modal">
+  <div class="modal" style="max-width:380px">
+    <button class="modal-close" onclick="closeModal('pin-modal')">✕</button>
+    <div class="modal-title" id="pin-modal-title">Rotate Authorization Vector Credentials</div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Active Verification Password PIN *</label><input type="password" id="cp-current" placeholder="Enter matching existing value" maxlength="4" inputmode="numeric"/></div>
+      <div class="form-group full"><label>Target Future PIN Token Code *</label><input type="password" id="cp-new" placeholder="Enter four numeric characters" maxlength="4" inputmode="numeric"/></div>
+      <div class="form-group full"><label>Confirm Target PIN Vector *</label><input type="password" id="cp-confirm" placeholder="Repeat selection parameters" maxlength="4" inputmode="numeric"/></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('pin-modal')">Cancel</button>
+      <button class="btn-primary" onclick="savePin()">Update System Access Vector</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="confirm-modal">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-title" id="confirm-title">System Interlocking Override Request</div>
+    <div class="confirm-msg" id="confirm-msg"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('confirm-modal')">Abort Sequence</button>
+      <button class="btn-danger" id="confirm-ok-btn">Commit Destruction Vector</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
