@@ -236,11 +236,11 @@ function openBulkUploadModal(type) {
   const hint = document.getElementById('bulk-schema-hint');
 
   if (type === 'teachers') {
-    document.getElementById('bulk-upload-title').textContent = 'Upload Teachers List (Excel)';
-    hint.innerHTML = `Upload an <b>.xlsx or .xls</b> file with columns: <code>name, subject, pin, phone</code><br><br>Or paste JSON: <code>[ { "name": "Prof. Smith", "subject": "Physics", "pin": "7788", "phone": "9876543210" } ]</code>`;
+    document.getElementById('bulk-upload-title').textContent = 'Upload Teachers List';
+    hint.innerHTML = `Select an <b>.xlsx or .xls</b> Excel file with these columns:<br><br><code>name &nbsp; subject &nbsp; pin &nbsp; phone</code><br><br>Example row: <code>Prof. Smith | Physics | 7788 | 9876543210</code>`;
   } else {
-    document.getElementById('bulk-upload-title').textContent = 'Upload Students List (Excel)';
-    hint.innerHTML = `Upload an <b>.xlsx or .xls</b> file with columns: <code>name, fatherName, mobile, plan, fee, joinDate</code><br><br>Or paste JSON: <code>[ { "name": "Alex", "fatherName": "Robert", "mobile": "9876543210", "plan": "Monthly", "fee": 1200, "joinDate": "${today()}" } ]</code>`;
+    document.getElementById('bulk-upload-title').textContent = 'Upload Students List';
+    hint.innerHTML = `Select an <b>.xlsx or .xls</b> Excel file with these columns:<br><br><code>name &nbsp; fatherName &nbsp; mobile &nbsp; plan &nbsp; fee &nbsp; joinDate</code><br><br>Plan values: <code>Monthly / Bi-Monthly / Quarterly / Half-Yearly / Yearly</code>`;
   }
   openModal('bulk-upload-modal');
 }
@@ -267,7 +267,7 @@ function handleExcelUpload(evt) {
 
 function processBulkJSONSubmit() {
   const rawText = document.getElementById('bulk-json-area').value.trim();
-  if (!rawText) { alert('Please upload a file or paste data first.'); return; }
+  if (!rawText) { alert('Please upload an Excel file first.'); return; }
 
   try {
     const parsed = JSON.parse(rawText);
@@ -545,13 +545,25 @@ function renderPie(paid, soon, over, pend) {
   const ctx = document.getElementById('pieChart').getContext('2d');
   if (pieChart) pieChart.destroy();
   if (!(paid + soon + over + pend)) return;
+  const statusMap = ['paid', 'soon', 'overdue', 'pending'];
   pieChart = new Chart(ctx, {
     type: 'doughnut',
     data: {
       labels: ['Paid', 'Due Soon', 'Overdue', 'Pending'],
       datasets: [{ data: [paid, soon, over, pend], backgroundColor: ['#639922', '#EF9F27', '#E24B4A', '#B4B2A9'], borderWidth: 3 }]
     },
-    options: { responsive: true, cutout: '65%', plugins: { legend: { display: false } } }
+    options: {
+      responsive: true, cutout: '65%',
+      plugins: { legend: { display: false } },
+      onClick: (evt, elements) => {
+        if (elements && elements.length > 0) {
+          gotoMembers(statusMap[elements[0].index]);
+        }
+      },
+      onHover: (evt, elements) => {
+        evt.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+      }
+    }
   });
 }
 
@@ -826,6 +838,7 @@ function renderTeachers() {
       <div class="teacher-stats"><span class="tstat tstat-total">${tm.length} students</span></div>
       <div class="teacher-card-actions">
         <button class="tc-btn tc-btn-view" onclick="viewTeacherStudents('${t.id}')">View Students</button>
+        <button class="tc-btn tc-btn-edit" onclick="openEditTeacherModal('${t.id}')">Edit</button>
         <button class="tc-btn tc-btn-del" onclick="askDeleteTeacher('${t.id}')">Remove</button>
       </div>
     </div>`;
@@ -836,12 +849,30 @@ function viewTeacherStudents(tid) {
   showPage('all-students'); populateTeacherFilter(); document.getElementById('as-filter-teacher').value = tid; renderAllStudents();
 }
 
+let editingTeacherId = null;
+
 function openAddTeacherModal() {
   if (session.role !== 'super-admin') return;
+  editingTeacherId = null;
+  document.getElementById('teacher-modal-title').textContent = 'Add New Teacher';
   document.getElementById('t-name').value = '';
   document.getElementById('t-subject').value = '';
   document.getElementById('t-pin').value = '';
   document.getElementById('t-phone').value = '';
+  document.getElementById('t-pin-group').style.display = 'block';
+  openModal('teacher-modal');
+}
+
+function openEditTeacherModal(id) {
+  if (session.role !== 'super-admin') return;
+  const t = teachers.find(x => x.id === id); if (!t) return;
+  editingTeacherId = id;
+  document.getElementById('teacher-modal-title').textContent = 'Edit Teacher Details';
+  document.getElementById('t-name').value = t.name;
+  document.getElementById('t-subject').value = t.subject || '';
+  document.getElementById('t-pin').value = '';
+  document.getElementById('t-phone').value = t.phone || '';
+  document.getElementById('t-pin-group').style.display = 'block';
   openModal('teacher-modal');
 }
 
@@ -853,10 +884,20 @@ function saveTeacher() {
 
   if (!name) { alert('Please enter the teacher name.'); return; }
   if (phone.length !== 10 || !/^\d{10}$/.test(phone)) { alert('Please enter a valid 10-digit phone number.'); return; }
-  if (pin.length !== 4 || !/^\d{4}$/.test(pin)) { alert('PIN must be exactly 4 digits.'); return; }
 
-  teachers.push({ id: uid(), name, subject, pin, phone, createdAt: new Date().toISOString() });
-  saveTeachers(); addLog(`Added new teacher: ${name}`);
+  if (editingTeacherId) {
+    const t = teachers.find(x => x.id === editingTeacherId);
+    t.name = name; t.subject = subject; t.phone = phone;
+    if (pin) {
+      if (pin.length !== 4 || !/^\d{4}$/.test(pin)) { alert('PIN must be exactly 4 digits.'); return; }
+      t.pin = pin;
+    }
+    saveTeachers(); addLog(`Updated teacher: ${name}`);
+  } else {
+    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) { alert('PIN must be exactly 4 digits.'); return; }
+    teachers.push({ id: uid(), name, subject, pin, phone, createdAt: new Date().toISOString() });
+    saveTeachers(); addLog(`Added new teacher: ${name}`);
+  }
   closeModal('teacher-modal'); renderTeachers();
 }
 
