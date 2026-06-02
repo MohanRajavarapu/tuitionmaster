@@ -1,4 +1,4 @@
-// ════ TuitionMaster Modernized Multi-Role Core engine ════
+// ════ TuitionMaster Modernized Multi-Role Core engine ════+
 
 const K = { settings: 'tm_v2_settings', teachers: 'tm_v2_teachers', members: 'tm_v2_members', logs: 'tm_v2_audit_logs' };
 const PLAN_DAYS = { Monthly: 30, 'Bi-Monthly': 60, Quarterly: 90, 'Half-Yearly': 180, Yearly: 365 };
