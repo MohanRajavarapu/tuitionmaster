@@ -1,0 +1,15 @@
+{
+  "name": "tuition-master-pro",
+  "version": "2.0.0",
+  "description": "Tuition Centre Student & Fee Management System",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "keywords": [],
+  "author": "Your Name",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^30.0.0"
+  }
+}

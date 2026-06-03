@@ -187,6 +187,13 @@
           </div>
           <button class="settings-row-action" style="color:var(--purple); background:var(--purple-light); border-color:var(--purple)" onclick="triggerRollover()">Start New Year</button>
         </div>
+        <div class="settings-row" style="background: var(--red-light);">
+          <div>
+            <div class="settings-row-label" style="color: var(--red);">System Hard Reset (Clear Storage)</div>
+            <div class="settings-row-sub">Deletes the local database file instantly. Perfect for cross-testing blank workflows.</div>
+          </div>
+          <button class="settings-row-action" style="color:white; background:var(--red-mid); border-color:var(--red)" onclick="triggerSystemPurge()">Purge Database</button>
+        </div>
       </div>
     </div>
     <div class="settings-section">
@@ -229,7 +236,6 @@
   <div class="mobile-nav-inner" id="mobile-nav-inner"></div>
 </nav>
 
-<!-- First Login Phone Setup Modal -->
 <div class="modal-backdrop" id="first-login-modal">
   <div class="modal" style="max-width: 400px;">
     <div class="modal-title" id="first-login-title">Set Your Mobile Number</div>
@@ -245,7 +251,6 @@
   </div>
 </div>
 
-<!-- Bulk Upload Modal -->
 <div class="modal-backdrop" id="bulk-upload-modal">
   <div class="modal" style="max-width: 480px;">
     <button class="modal-close" onclick="closeModal('bulk-upload-modal')">✕</button>
@@ -258,7 +263,6 @@
       <div class="form-group full" style="font-size: 12px; color: var(--text2); background: var(--surface2); padding: 12px; border-radius: var(--radius); line-height: 1.7;">
         <span id="bulk-schema-hint"></span>
       </div>
-      <!-- hidden textarea kept for JS compatibility -->
       <textarea id="bulk-json-area" style="display:none;"></textarea>
     </div>
     <div class="modal-actions">
@@ -268,7 +272,6 @@
   </div>
 </div>
 
-<!-- Add/Edit Student Modal -->
 <div class="modal-backdrop" id="member-modal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('member-modal')">✕</button>
@@ -306,7 +309,6 @@
   </div>
 </div>
 
-<!-- SMS Modal -->
 <div class="modal-backdrop" id="sms-modal">
   <div class="modal" style="max-width:440px">
     <button class="modal-close" onclick="closeModal('sms-modal')">✕</button>
@@ -331,7 +333,6 @@
   </div>
 </div>
 
-<!-- Gateway Log Modal -->
 <div class="modal-backdrop" id="gateway-modal">
   <div class="modal" style="max-width:420px">
     <button class="modal-close" onclick="closeModal('gateway-modal')">✕</button>
@@ -343,7 +344,6 @@
   </div>
 </div>
 
-<!-- Add Teacher Modal -->
 <div class="modal-backdrop" id="teacher-modal">
   <div class="modal" style="max-width:400px">
     <button class="modal-close" onclick="closeModal('teacher-modal')">✕</button>
@@ -361,7 +361,6 @@
   </div>
 </div>
 
-<!-- Name Modal -->
 <div class="modal-backdrop" id="name-modal">
   <div class="modal" style="max-width:420px">
     <button class="modal-close" onclick="closeModal('name-modal')">✕</button>
@@ -377,7 +376,6 @@
   </div>
 </div>
 
-<!-- Change PIN Modal -->
 <div class="modal-backdrop" id="pin-modal">
   <div class="modal" style="max-width:380px">
     <button class="modal-close" onclick="closeModal('pin-modal')">✕</button>
@@ -394,7 +392,6 @@
   </div>
 </div>
 
-<!-- Confirm Modal -->
 <div class="modal-backdrop" id="confirm-modal">
   <div class="modal" style="max-width:360px">
     <div class="modal-title" id="confirm-title">Are you sure?</div>

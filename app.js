@@ -1,22 +1,42 @@
-// ════ TuitionMaster Modernized Multi-Role Core engine ════+
+// ════ TuitionMaster Desktop-Isolated Non-Volatile Engine ════
 
-const K = { settings: 'tm_v2_settings', teachers: 'tm_v2_teachers', members: 'tm_v2_members', logs: 'tm_v2_audit_logs' };
 const PLAN_DAYS = { Monthly: 30, 'Bi-Monthly': 60, Quarterly: 90, 'Half-Yearly': 180, Yearly: 365 };
 
-function load(k, def) {
-  try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; }
+// Centralized Asynchronous Memory State
+let settings = { tuitionName: '', masterName: '', adminPin: '8888', accountantPin: '9999', adminPhone: null, accountantPhone: null, adminFirstLogin: true, accountantFirstLogin: true };
+let teachers  = [];
+let members   = [];
+let auditLogs = [];
+
+// ─── DESKTOP DATA-LAYER SYNCHRONIZATION RUNTIME ───
+async function synchronizeWrite() {
+  const compositeDatabaseDump = { settings, teachers, members, auditLogs };
+  if (window.DesktopDB) {
+    await window.DesktopDB.write(compositeDatabaseDump);
+  }
 }
 
-// Default passwords = phone numbers: Super-Admin=8888888888 -> last 4 = 8888, Accountant=9999999999 -> last 4 = 9999
-let settings = load(K.settings, { tuitionName: '', masterName: '', adminPin: '8888', accountantPin: '9999', adminPhone: null, accountantPhone: null, adminFirstLogin: true, accountantFirstLogin: true });
-let teachers  = load(K.teachers, []);
-let members   = load(K.members, []);
-let auditLogs = load(K.logs, []);
+async function initializeDatabaseBoot() {
+  if (window.DesktopDB) {
+    const diskSnapshot = await window.DesktopDB.read();
+    if (diskSnapshot) {
+      if (diskSnapshot.settings) settings = diskSnapshot.settings;
+      if (diskSnapshot.teachers) teachers = diskSnapshot.teachers;
+      if (diskSnapshot.members)  members  = diskSnapshot.members;
+      if (diskSnapshot.auditLogs) auditLogs = diskSnapshot.auditLogs;
+    }
+  }
+  // Setup interface display arrays on complete load
+  if (document.getElementById('login-screen')) {
+    // Application is ready for auth portal assignment
+    console.log("Database initialized successfully from disk storage.");
+  }
+}
 
-function saveSettings() { localStorage.setItem(K.settings, JSON.stringify(settings)); }
-function saveTeachers() { localStorage.setItem(K.teachers, JSON.stringify(teachers)); }
-function saveMembers()  { localStorage.setItem(K.members,  JSON.stringify(members));  }
-function saveLogs()     { localStorage.setItem(K.logs,     JSON.stringify(auditLogs)); }
+// Perform boot verification scan instantly
+window.addEventListener('DOMContentLoaded', async () => {
+  await initializeDatabaseBoot();
+});
 
 let session = null;
 let selectedRole = null;
@@ -26,10 +46,9 @@ let currentPage = '';
 let pieChart = null;
 let editingMemberId = null;
 let bulkUploadType = 'students';
-
-// ─── FIRST LOGIN PHONE SETUP ───
 let pendingFirstLoginRole = null;
 
+// ─── FIRST LOGIN PHONE SETUP ───
 function showFirstLoginPhoneSetup(role) {
   pendingFirstLoginRole = role;
   const modal = document.getElementById('first-login-modal');
@@ -42,7 +61,7 @@ function showFirstLoginPhoneSetup(role) {
   openModal('first-login-modal');
 }
 
-function saveFirstLoginPhone() {
+async function saveFirstLoginPhone() {
   const p1 = document.getElementById('fl-phone1').value.trim();
   const p2 = document.getElementById('fl-phone2').value.trim();
   const errEl = document.getElementById('fl-error');
@@ -57,28 +76,28 @@ function saveFirstLoginPhone() {
     settings.accountantPhone = p1;
     settings.accountantFirstLogin = false;
   }
-  saveSettings();
+  
+  await synchronizeWrite();
   closeModal('first-login-modal');
 
-  // Now enter app
   if (pendingFirstLoginRole === 'super-admin') {
     session = { role: 'super-admin' };
-    addLog("Super-Admin workspace session initialized (first login — phone set).");
+    await addLog("Super-Admin workspace session initialized (first login — phone set).");
     if (!settings.tuitionName) { enterApp(); setTimeout(openNameModal, 400); return; }
     enterApp();
   } else {
     session = { role: 'accountant' };
-    addLog("Accountant session validated (first login — phone set).");
+    await addLog("Accountant session validated (first login — phone set).");
     enterApp();
   }
 }
 
 // ─── AUDIT LOGGING SYSTEM ───
-function addLog(actionMessage) {
+async function addLog(actionMessage) {
   const actor = session ? (session.role === 'teacher' ? session.teacherName : session.role) : 'System';
   const timestamp = new Date().toISOString();
   auditLogs.unshift({ actor, timestamp, message: actionMessage });
-  saveLogs();
+  await synchronizeWrite();
   if (currentPage === 'settings') renderAuditLogs();
 }
 
@@ -99,8 +118,10 @@ function renderAuditLogs() {
   `).join('');
 }
 
-function clearLogsClick() {
-  auditLogs = []; saveLogs(); renderAuditLogs();
+async function clearLogsClick() {
+  auditLogs = []; 
+  await synchronizeWrite(); 
+  renderAuditLogs();
   showToast('Activity logs cleared.');
 }
 
@@ -172,37 +193,35 @@ function onTeacherSelect() {
   }
 }
 
-function doLogin() {
+async function doLogin() {
   const pin = getPin();
   if (!selectedRole) { showToast('Please choose an access mode.'); return; }
 
   if (selectedRole === 'super-admin') {
     if (pin !== settings.adminPin) { passwordFailureAlert(); return; }
-    // First time login — ask phone number
     if (settings.adminFirstLogin !== false) {
       showFirstLoginPhoneSetup('super-admin');
       return;
     }
     session = { role: 'super-admin' };
-    addLog("Super-Admin workspace session initialized.");
+    await addLog("Super-Admin workspace session initialized.");
     if (!settings.tuitionName) { enterApp(); setTimeout(openNameModal, 400); return; }
     enterApp();
   } else if (selectedRole === 'accountant') {
     if (pin !== settings.accountantPin) { passwordFailureAlert(); return; }
-    // First time login — ask phone number
     if (settings.accountantFirstLogin !== false) {
       showFirstLoginPhoneSetup('accountant');
       return;
     }
     session = { role: 'accountant' };
-    addLog("Accountant session validated.");
+    await addLog("Accountant session validated.");
     enterApp();
   } else {
     if (!selectedTeacherId) { showToast('Select an instructor context.'); return; }
     const teacher = teachers.find(t => t.id === selectedTeacherId);
     if (!teacher || pin !== teacher.pin) { passwordFailureAlert(); return; }
     session = { role: 'teacher', teacherId: teacher.id, teacherName: teacher.name };
-    addLog(`Teacher logged in: [${teacher.name}]`);
+    await addLog(`Teacher logged in: [${teacher.name}]`);
     enterApp();
   }
 }
@@ -213,8 +232,8 @@ function passwordFailureAlert() {
   document.getElementById('p0').focus();
 }
 
-function logout() {
-  addLog(`Session logged out.`);
+async function logout() {
+  await addLog(`Session logged out.`);
   session = null; selectedRole = null; selectedTeacherId = null;
   document.getElementById('app-header').style.display = 'none';
   document.getElementById('app-main').style.display = 'none';
@@ -265,7 +284,7 @@ function handleExcelUpload(evt) {
   reader.readAsArrayBuffer(file);
 }
 
-function processBulkJSONSubmit() {
+async function processBulkJSONSubmit() {
   const rawText = document.getElementById('bulk-json-area').value.trim();
   if (!rawText) { alert('Please upload an Excel file first.'); return; }
 
@@ -288,9 +307,9 @@ function processBulkJSONSubmit() {
           insertedCount++;
         }
       });
-      saveTeachers();
+      await synchronizeWrite();
       renderTeachers();
-      addLog(`Uploaded ${insertedCount} teacher records.`);
+      await addLog(`Uploaded ${insertedCount} teacher records.`);
     } else {
       arr.forEach(item => {
         if (item.name && item.fatherName && String(item.mobile).length >= 10) {
@@ -305,17 +324,17 @@ function processBulkJSONSubmit() {
             joinDate: joinDate,
             customDueDate: planScheme === 'Custom' ? (item.customDueDate || today()) : null,
             fee: Number(item.fee) || 0,
-            paid: false,  // New students always start as unpaid/delinquent
+            paid: false, 
             teacherId: null,
             createdAt: new Date().toISOString()
           });
           insertedCount++;
         }
       });
-      saveMembers();
+      await synchronizeWrite();
       renderDashboard();
       if (currentPage === 'all-students') renderAllStudents();
-      addLog(`Uploaded ${insertedCount} student records.`);
+      await addLog(`Uploaded ${insertedCount} student records.`);
     }
 
     closeModal('bulk-upload-modal');
@@ -447,7 +466,7 @@ function logGatewayActivity(title, logLines) {
   printLine();
 }
 
-function triggerWhatsAppReminder(studentId) {
+async function triggerWhatsAppReminder(studentId) {
   const m = members.find(x => x.id === studentId); if (!m) return;
   const lines = [
     `Sending WhatsApp reminder to parent of ${m.name}...`,
@@ -456,14 +475,14 @@ function triggerWhatsAppReminder(studentId) {
     `Status: Message sent successfully.`
   ];
   logGatewayActivity(`WhatsApp Reminder Sent`, lines);
-  addLog(`Sent WhatsApp reminder to parent of: ${m.name}`);
+  await addLog(`Sent WhatsApp reminder to parent of: ${m.name}`);
 }
 
 function openBulkSMSModal() {
   document.getElementById('sms-body').value = ''; openModal('sms-modal');
 }
 
-function sendBulkSMS() {
+async function sendBulkSMS() {
   const targetGroup = document.getElementById('sms-target').value;
   const msgBody = document.getElementById('sms-body').value.trim();
   if (!msgBody) { alert('Please type a message before sending.'); return; }
@@ -480,7 +499,7 @@ function sendBulkSMS() {
 
   closeModal('sms-modal');
   logGatewayActivity(`Bulk SMS Sent`, lines);
-  addLog(`Sent bulk SMS to ${targets.length} parents.`);
+  await addLog(`Sent bulk SMS to ${targets.length} parents.`);
 }
 
 function dispatchReceiptNotification(m) {
@@ -502,8 +521,8 @@ function fmtDate(d) { return new Date(d).toLocaleDateString('en-IN', { day: '2-d
 
 function getDueDate(m) {
   if (m.plan === 'Custom') return m.customDueDate ? new Date(m.customDueDate) : new Date(m.joinDate);
-  const j = new Date(m.joinDate);
-  return new Date(j.getTime() + (PLAN_DAYS[m.plan] || 30) * 86400000);
+  const baseCycleDate = m.lastPaymentCycleDate ? new Date(m.lastPaymentCycleDate) : new Date(m.joinDate);
+  return new Date(baseCycleDate.getTime() + (PLAN_DAYS[m.plan] || 30) * 86400000);
 }
 
 function getStatus(m) {
@@ -688,25 +707,24 @@ function adminStudentRow(m) {
   </tr>`;
 }
 
-function togglePaid(id) {
+async function togglePaid(id) {
   const m = members.find(x => x.id === id); if (!m) return;
   m.paid = !m.paid;
 
-  // When marking as paid, calculate next due date based on payment frequency
+  // Preserve the historical context of joinDate by introducing lastPaymentCycleDate
   if (m.paid && m.plan !== 'Custom') {
-    const nextDue = new Date();
-    nextDue.setDate(nextDue.getDate() + (PLAN_DAYS[m.plan] || 30));
-    m.joinDate = new Date().toISOString().split('T')[0]; // reset cycle from today
-    addLog(`Payment received for ${m.name}. Next due date: ${fmtDate(nextDue)}.`);
+    m.lastPaymentCycleDate = today();
+    const nextDue = getDueDate(m);
+    await addLog(`Payment received for ${m.name}. Next due date advanced to: ${fmtDate(nextDue)}.`);
     dispatchReceiptNotification(m);
   } else if (m.paid) {
-    addLog(`Payment marked for ${m.name}.`);
+    await addLog(`Payment captured for custom dated account: ${m.name}.`);
     dispatchReceiptNotification(m);
   } else {
-    addLog(`Payment status reversed for: ${m.name}`);
+    await addLog(`Payment state allocation reversed for student: ${m.name}`);
   }
 
-  saveMembers();
+  await synchronizeWrite();
   renderDashboard();
   if (currentPage === 'members') renderTable();
   if (currentPage === 'all-students') renderAllStudents();
@@ -721,7 +739,6 @@ function openAddMemberModal() {
   document.getElementById('f-mobile').value = ''; document.getElementById('f-plan').value = '';
   document.getElementById('f-joindate').value = today(); document.getElementById('f-customdue').value = today();
   document.getElementById('f-fee').value = '';
-  // New students always start as overdue (amount to be paid first)
   document.getElementById('f-status').value = 'pending';
   togglePlanDueOption(); buildTeacherDropdownInModal(null); openModal('member-modal');
 }
@@ -746,7 +763,7 @@ function buildTeacherDropdownInModal(currentTeacherId) {
   sel.innerHTML = '<option value="">— Unassigned —</option>' + teachers.map(t => `<option value="${t.id}" ${t.id === currentTeacherId ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
 }
 
-function saveMember() {
+async function saveMember() {
   const name = document.getElementById('f-name').value.trim();
   const father = document.getElementById('f-father').value.trim();
   const mobile = document.getElementById('f-mobile').value.trim();
@@ -763,14 +780,15 @@ function saveMember() {
     const m = members.find(x => x.id === editingMemberId);
     const paid = statusVal === 'paid';
     Object.assign(m, { name, fatherName: father, mobile, plan, joinDate, customDueDate: plan === 'Custom' ? customDue : null, fee, paid, teacherId });
-    addLog(`Updated student record: ${name}`);
+    await addLog(`Updated student record: ${name}`);
   } else {
-    // New students are always added as unpaid (delinquent — amount to be paid first)
     members.push({ id: uid(), name, fatherName: father, mobile, plan, joinDate, customDueDate: plan === 'Custom' ? customDue : null, fee, paid: false, teacherId, createdAt: new Date().toISOString() });
-    addLog(`Added new student: ${name} (fee due from ${joinDate})`);
+    await addLog(`Added new student: ${name} (fee due from ${joinDate})`);
   }
 
-  saveMembers(); closeModal('member-modal'); renderDashboard();
+  await synchronizeWrite(); 
+  closeModal('member-modal'); 
+  renderDashboard();
   if (currentPage === 'members') renderTable();
   if (currentPage === 'all-students') renderAllStudents();
 }
@@ -778,9 +796,10 @@ function saveMember() {
 function askDeleteMember(id) {
   if (session.role !== 'super-admin') { showToast('Only Super-Admin can delete records.'); return; }
   const m = members.find(x => x.id === id); if (!m) return;
-  showConfirm(`Remove student "${m.name}" permanently?`, () => {
-    members = members.filter(x => x.id !== id); saveMembers();
-    addLog(`Deleted student: [${m.name}]`);
+  showConfirm(`Remove student "${m.name}" permanently?`, async () => {
+    members = members.filter(x => x.id !== id); 
+    await synchronizeWrite();
+    await addLog(`Deleted student: [${m.name}]`);
     renderDashboard(); if (currentPage === 'all-students') renderAllStudents();
     showToast('Student removed.');
   });
@@ -788,9 +807,10 @@ function askDeleteMember(id) {
 
 function triggerRollover() {
   if (session.role !== 'super-admin') return;
-  showConfirm("Start new Academic Year? This will reset all payment statuses and advance dates by one year.", () => {
+  showConfirm("Start new Academic Year? This will reset all payment statuses and advance dates by one year.", async () => {
     members.forEach(m => {
       m.paid = false;
+      m.lastPaymentCycleDate = null;
       const currentYear = new Date(m.joinDate || today()).getFullYear();
       m.joinDate = `${currentYear + 1}-06-01`;
       if (m.customDueDate) {
@@ -798,8 +818,24 @@ function triggerRollover() {
         m.customDueDate = `${cYear + 1}-06-01`;
       }
     });
-    saveMembers(); addLog("Academic Year Rollover completed.");
+    await synchronizeWrite(); 
+    await addLog("Academic Year Rollover completed.");
     renderDashboard(); showToast("New academic year started.");
+  });
+}
+
+// ─── THE HIGH-VALUE STORAGE TEST SYSTEM RESET CONTROLLER ───
+function triggerSystemPurge() {
+  showConfirm("🚨 DANGER ZONE: This will completely destroy the local tracking file. App will close to reset storage pools. Proceed?", async () => {
+    if (window.DesktopDB) {
+      const res = await window.DesktopDB.purge();
+      if (res.success) {
+        alert("Local storage wiped cleanly. Restarting app framework context.");
+        window.location.reload();
+      } else {
+        alert("Purge operation failure: " + res.error);
+      }
+    }
   });
 }
 
@@ -876,7 +912,7 @@ function openEditTeacherModal(id) {
   openModal('teacher-modal');
 }
 
-function saveTeacher() {
+async function saveTeacher() {
   const name = document.getElementById('t-name').value.trim();
   const subject = document.getElementById('t-subject').value.trim();
   const pin = document.getElementById('t-pin').value.trim();
@@ -892,20 +928,23 @@ function saveTeacher() {
       if (pin.length !== 4 || !/^\d{4}$/.test(pin)) { alert('PIN must be exactly 4 digits.'); return; }
       t.pin = pin;
     }
-    saveTeachers(); addLog(`Updated teacher: ${name}`);
+    await synchronizeWrite(); 
+    await addLog(`Updated teacher: ${name}`);
   } else {
     if (pin.length !== 4 || !/^\d{4}$/.test(pin)) { alert('PIN must be exactly 4 digits.'); return; }
     teachers.push({ id: uid(), name, subject, pin, phone, createdAt: new Date().toISOString() });
-    saveTeachers(); addLog(`Added new teacher: ${name}`);
+    await synchronizeWrite(); 
+    await addLog(`Added new teacher: ${name}`);
   }
   closeModal('teacher-modal'); renderTeachers();
 }
 
 function askDeleteTeacher(id) {
   if (session.role !== 'super-admin') return; const t = teachers.find(x => x.id === id);
-  showConfirm(`Remove teacher "${t?.name}"? Their students will become unassigned.`, () => {
-    teachers = teachers.filter(x => x.id !== id); saveTeachers();
-    addLog(`Removed teacher: [${t?.name}]`);
+  showConfirm(`Remove teacher "${t?.name}"? Their students will become unassigned.`, async () => {
+    teachers = teachers.filter(x => x.id !== id); 
+    await synchronizeWrite();
+    await addLog(`Removed teacher: [${t?.name}]`);
     renderTeachers();
   });
 }
@@ -917,11 +956,12 @@ function openNameModal() {
   document.getElementById('n-master').value = settings.masterName || ''; openModal('name-modal');
 }
 
-function saveTuitionName() {
+async function saveTuitionName() {
   const t = document.getElementById('n-tuition').value.trim();
   const m = document.getElementById('n-master').value.trim(); if (!t || !m) return;
-  settings.tuitionName = t; settings.masterName = m; saveSettings();
-  addLog(`Updated centre name: [${t}] managed by [${m}]`);
+  settings.tuitionName = t; settings.masterName = m; 
+  await synchronizeWrite();
+  await addLog(`Updated centre name: [${t}] managed by [${m}]`);
   applyHeader(); closeModal('name-modal');
 }
 
@@ -932,7 +972,7 @@ function openChangePinModal(targetRole) {
   openModal('pin-modal');
 }
 
-function savePin() {
+async function savePin() {
   const cur = document.getElementById('cp-current').value;
   const nw = document.getElementById('cp-new').value;
   const cf = document.getElementById('cp-confirm').value;
@@ -942,7 +982,8 @@ function savePin() {
   if (nw.length !== 4 || isNaN(nw) || nw !== cf) { alert('New PIN must be 4 digits and both entries must match.'); return; }
 
   if (targetChangingPinRole === 'super-admin') { settings.adminPin = nw; } else { settings.accountantPin = nw; }
-  saveSettings(); addLog(`PIN changed for: [${targetChangingPinRole}]`);
+  await synchronizeWrite(); 
+  await addLog(`PIN changed for: [${targetChangingPinRole}]`);
   closeModal('pin-modal'); showToast('PIN updated successfully.');
 }
 
