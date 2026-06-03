@@ -8,28 +8,37 @@ let teachers  = [];
 let members   = [];
 let auditLogs = [];
 
-// ─── DESKTOP DATA-LAYER SYNCHRONIZATION RUNTIME ───
+// ─── DESKTOP & BROWSER CROSS-COMPATIBLE HYBRID DATA LAYER ───
+const BROWSER_FALLBACK_KEY = 'tm_v2_hybrid_backup';
+
 async function synchronizeWrite() {
   const compositeDatabaseDump = { settings, teachers, members, auditLogs };
+  
   if (window.DesktopDB) {
+    // Native Desktop Mode: Save directly to the user's hard drive documents folder
     await window.DesktopDB.write(compositeDatabaseDump);
+  } else {
+    // Browser Testing Mode: Fallback to local storage so you can preview changes
+    localStorage.setItem(BROWSER_FALLBACK_KEY, JSON.stringify(compositeDatabaseDump));
   }
 }
 
 async function initializeDatabaseBoot() {
+  let diskSnapshot = null;
+
   if (window.DesktopDB) {
-    const diskSnapshot = await window.DesktopDB.read();
-    if (diskSnapshot) {
-      if (diskSnapshot.settings) settings = diskSnapshot.settings;
-      if (diskSnapshot.teachers) teachers = diskSnapshot.teachers;
-      if (diskSnapshot.members)  members  = diskSnapshot.members;
-      if (diskSnapshot.auditLogs) auditLogs = diskSnapshot.auditLogs;
-    }
+    diskSnapshot = await window.DesktopDB.read();
+  } else {
+    // Browser Testing Mode fallback lookup
+    const localData = localStorage.getItem(BROWSER_FALLBACK_KEY);
+    if (localData) diskSnapshot = JSON.parse(localData);
   }
-  // Setup interface display arrays on complete load
-  if (document.getElementById('login-screen')) {
-    // Application is ready for auth portal assignment
-    console.log("Database initialized successfully from disk storage.");
+
+  if (diskSnapshot) {
+    if (diskSnapshot.settings) settings = diskSnapshot.settings;
+    if (diskSnapshot.teachers) teachers = diskSnapshot.teachers;
+    if (diskSnapshot.members)  members  = diskSnapshot.members;
+    if (diskSnapshot.auditLogs) auditLogs = diskSnapshot.auditLogs;
   }
 }
 
